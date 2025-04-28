@@ -1,0 +1,6 @@
+0-9 ground
+10-11 water
+12-15 decoration
+16 player
+17 points
+18 exit

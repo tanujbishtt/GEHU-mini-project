@@ -24,12 +24,12 @@ moving_left = False
 shoot = False
 
 
-arrow = pygame.image.load("assets/arrow.png").convert_alpha()
-
 def Draw_BG():
     screen.fill((0, 0, 0))
-    pygame.draw.line(screen, (255, 255, 255), (0, SCREEN_HEIGHT - 50), (SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
-    pygame.draw.rect(screen, (0, 255, 0), (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
+    pygame.draw.line(screen, (255, 255, 255), (0, SCREEN_HEIGHT - 50),
+                     (SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
+    pygame.draw.rect(screen, (0, 255, 0),
+                     (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
 
 
 class Player(pygame.sprite.Sprite):
@@ -45,23 +45,30 @@ class Player(pygame.sprite.Sprite):
         self.animation_list = []
         self.index = 0
         self.action = 0
+        self.cooldown = 0
         self.update_time = pygame.time.get_ticks()
         temp_list = []
 
         # load all images for the character
-        animation_types = ['idle', 'run', 'jump']
+        animation_types = ['idle', 'run', 'jump','attack']
         for animation in animation_types:
             temp_list = []
             num_of_frames = len(os.listdir(f'assets/{char_type}/{animation}'))
             for i in range(num_of_frames):
-                img = pygame.image.load(f'assets/{char_type}/{animation}/{i}.png').convert_alpha()
-                img = pygame.transform.scale(img, (int(img.get_width()*scale), int(img.get_height()*scale)))
+                img = pygame.image.load(
+                    f'assets/{char_type}/{animation}/{i}.png').convert_alpha()
+                img = pygame.transform.scale(
+                    img, (int(img.get_width()*scale), int(img.get_height()*scale)))
                 temp_list.append(img)
             self.animation_list.append(temp_list)
-
         self.image = self.animation_list[self.action][self.index]
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
+    
+    def update(self):
+        self.update_animation()
+        if self.cooldown > 0:
+            self.cooldown -= 1
 
     def move(self, moving_left, moving_right):
         # reset movement variables
@@ -76,7 +83,7 @@ class Player(pygame.sprite.Sprite):
             dx = self.speed
             self.flip = False
             self.direction = 1
-        
+
         # jumping
         if self.jump and not self.in_air:
             self.velocity_y = -10
@@ -120,45 +127,54 @@ class Player(pygame.sprite.Sprite):
             self.index = 0
             self.update_time = pygame.time.get_ticks()
 
+    def Shoot(self):
+        if self.cooldown == 0:
+            self.update_action(3)
+            self.cooldown = 20
+            arrow = Arrow(self.rect.centerx + self.rect.width * 0.6 * self.direction, self.rect.centery, self.direction)
+            arrow_group.add(arrow)
+
     def draw(self):
-        screen.blit(pygame.transform.flip(
-            self.image, self.flip, False), self.rect)
+        screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect)
         pygame.draw.rect(screen, (255, 0, 0), self.rect, 2)
 
+
+arrow_img = pygame.image.load("assets/arrow.png").convert_alpha()
 
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
         pygame.sprite.Sprite.__init__(self)
         self.speed = 10
-        self.image = arrow
+        self.image = arrow_img
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.direction = direction
+    
+    def update(self):
+        self.rect.x += self.speed * self.direction
+        if self.rect.x < 0 or self.rect.x > SCREEN_WIDTH:
+            self.kill()
 
 # create sprite groups
 arrow_group = pygame.sprite.Group()
-enemy_group = pygame.sprite.Group()
-
 player = Player(200, 200, "player", 2, 5)
-enemy = Player(400, 200, "enemy", 2, 5)
 
 run = True
 while run:
     # drawing Things
     Draw_BG()
-    enemy.draw()
     arrow_group.update()
     arrow_group.draw(screen)
-
     player.draw()
-    player.update_animation()
+    player.update()
+    print(player.action)
 
+    # update the player animation and shooting mechanism
     if player.alive:
         if shoot:
-            arrow = Arrow(player.rect.centerx, player.rect.centery, player.direction)
-            arrow_group.add(arrow)
+            player.Shoot()
             shoot = False
-        if player.in_air:
+        elif player.in_air:
             player.update_action(2)
         elif moving_left or moving_right:
             player.update_action(1)

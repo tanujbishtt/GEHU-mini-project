@@ -26,10 +26,8 @@ shoot = False
 
 def Draw_BG():
     screen.fill((0, 0, 0))
-    pygame.draw.line(screen, (255, 255, 255), (0, SCREEN_HEIGHT - 50),
-                     (SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
-    pygame.draw.rect(screen, (0, 255, 0),
-                     (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
+    pygame.draw.line(screen, (255, 255, 255), (0, SCREEN_HEIGHT - 50),(SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
+    pygame.draw.rect(screen, (0, 255, 0),(0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
 
 
 class Player(pygame.sprite.Sprite):
@@ -37,11 +35,13 @@ class Player(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         self.alive = True
         self.speed = speed
-        self.direction = 1  # 1 for right, -1 for left
-        self.flip = False  # flip the image if moving left4
+        self.direction = 1  
+        self.flip = False  # flip the image if moving left
         self.jump = False
         self.in_air = False
         self.velocity_y = 0
+        self.health = 100
+        self.max_health = self.health
         self.animation_list = []
         self.index = 0
         self.action = 0
@@ -50,7 +50,7 @@ class Player(pygame.sprite.Sprite):
         temp_list = []
 
         # load all images for the character
-        animation_types = ['idle', 'run', 'jump','attack']
+        animation_types = ['idle', 'run', 'jump','death']
         for animation in animation_types:
             temp_list = []
             num_of_frames = len(os.listdir(f'assets/{char_type}/{animation}'))
@@ -64,9 +64,10 @@ class Player(pygame.sprite.Sprite):
         self.image = self.animation_list[self.action][self.index]
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
-    
+
     def update(self):
         self.update_animation()
+        self.check_alive()
         if self.cooldown > 0:
             self.cooldown -= 1
 
@@ -118,7 +119,10 @@ class Player(pygame.sprite.Sprite):
             self.update_time = pygame.time.get_ticks()
             self.index += 1
             if self.index >= len(self.animation_list[self.action]):
-                self.index = 0
+                if self.action == 3:
+                    self.index = len(self.animation_list[self.action]) - 1
+                else:
+                    self.index = 0
             self.image = self.animation_list[self.action][self.index]
 
     def update_action(self, new_action):
@@ -127,9 +131,15 @@ class Player(pygame.sprite.Sprite):
             self.index = 0
             self.update_time = pygame.time.get_ticks()
 
+    def check_alive(self):
+        if self.health <= 0 and self.alive == True:
+            self.alive = False
+            self.health = 0
+            self.speed = 0
+            self.update_action(3)
+
     def Shoot(self):
         if self.cooldown == 0:
-            self.update_action(3)
             self.cooldown = 20
             arrow = Arrow(self.rect.centerx + self.rect.width * 0.6 * self.direction, self.rect.centery, self.direction)
             arrow_group.add(arrow)
@@ -149,15 +159,29 @@ class Arrow(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
         self.direction = direction
-    
+
     def update(self):
         self.rect.x += self.speed * self.direction
+
+        # check for collision with the wall
         if self.rect.x < 0 or self.rect.x > SCREEN_WIDTH:
             self.kill()
+
+        # check for collision with the player
+        if pygame.sprite.spritecollide(player, arrow_group, False):
+            if player.alive:
+                player.health -= 10
+                self.kill()
+        # check for collision with the player
+        if pygame.sprite.spritecollide(enemy, arrow_group, False):
+            if enemy.alive:
+                enemy.health -= 10
+                self.kill()
 
 # create sprite groups
 arrow_group = pygame.sprite.Group()
 player = Player(200, 200, "player", 2, 5)
+enemy = Player(200, SCREEN_HEIGHT - 100, "enemy", 2, 5)
 
 run = True
 while run:
@@ -167,7 +191,9 @@ while run:
     arrow_group.draw(screen)
     player.draw()
     player.update()
-    print(player.action)
+    enemy.draw()
+    enemy.update()
+    print(f'Player Health: {player.health}, Enemy Health: {enemy.health}')
 
     # update the player animation and shooting mechanism
     if player.alive:

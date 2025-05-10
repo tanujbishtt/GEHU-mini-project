@@ -9,6 +9,7 @@ pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("2D platformer")
 icon = pygame.image.load("assets/icon.png").convert_alpha()
+arrow_img = pygame.image.load("assets/arrow.png").convert_alpha()
 pygame.display.set_icon(icon)
 
 # set frame rate
@@ -16,6 +17,7 @@ clock = pygame.time.Clock()
 FPS = 75
 
 # define game variables
+TILE_SIZE = 40
 GRAVITY = 0.5
 
 # define player variables
@@ -148,9 +150,6 @@ class Player(pygame.sprite.Sprite):
         screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect)
         pygame.draw.rect(screen, (255, 0, 0), self.rect, 2)
 
-
-arrow_img = pygame.image.load("assets/arrow.png").convert_alpha()
-
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
         pygame.sprite.Sprite.__init__(self)
@@ -173,15 +172,21 @@ class Arrow(pygame.sprite.Sprite):
                 player.health -= 10
                 self.kill()
         # check for collision with the player
-        if pygame.sprite.spritecollide(enemy, arrow_group, False):
-            if enemy.alive:
-                enemy.health -= 10
-                self.kill()
+        for enemy in enemy_group:
+            if pygame.sprite.spritecollide(enemy, arrow_group, False):
+                if enemy.alive:
+                    enemy.health -= 10
+                    self.kill()
 
 # create sprite groups
 arrow_group = pygame.sprite.Group()
+enemy_group = pygame.sprite.Group()
 player = Player(200, 200, "player", 2, 5)
 enemy = Player(200, SCREEN_HEIGHT - 100, "enemy", 2, 5)
+enemy2 = Player(300, 300, "enemy", 2, 5,)
+enemy_group.add(enemy)
+enemy_group.add(enemy2)
+
 
 run = True
 while run:
@@ -191,9 +196,10 @@ while run:
     arrow_group.draw(screen)
     player.draw()
     player.update()
-    enemy.draw()
-    enemy.update()
-    print(f'Player Health: {player.health}, Enemy Health: {enemy.health}')
+
+    for enmy in enemy_group:
+        enmy.draw()
+        enmy.update()
 
     # update the player animation and shooting mechanism
     if player.alive:

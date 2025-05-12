@@ -1,4 +1,6 @@
 import pygame
+import random
+import csv
 import time
 import os
 
@@ -7,9 +9,18 @@ SCREEN_HEIGHT = 720
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("2D platformer")
+
+# load images
 icon = pygame.image.load("assets/icon.png").convert_alpha()
 arrow_img = pygame.image.load("assets/arrow.png").convert_alpha()
+coin_img = pygame.image.load("assets/coin.png").convert_alpha()
+health_box = pygame.image.load("assets/health.png").convert_alpha()
+item_boxes = {
+    'health': health_box,
+    'coin': coin_img
+}
+
+pygame.display.set_caption("2D platformer")
 pygame.display.set_icon(icon)
 
 # set frame rate
@@ -17,8 +28,12 @@ clock = pygame.time.Clock()
 FPS = 75
 
 # define game variables
-TILE_SIZE = 40
 GRAVITY = 0.5
+ROWS = 16
+COLS = 150
+TILE_SIZE = SCREEN_HEIGHT // ROWS
+TILE_TYPES = 18
+LEVEL = 1
 
 # define player variables
 moving_right = False
@@ -26,10 +41,19 @@ moving_left = False
 shoot = False
 
 
+def draw_text(text, font, color, surface, x, y):
+    textobj = font.render(text, True, color)
+    textrect = textobj.get_rect()
+    textrect.topleft = (x, y)
+    surface.blit(textobj, textrect)
+
+
 def Draw_BG():
     screen.fill((0, 0, 0))
-    pygame.draw.line(screen, (255, 255, 255), (0, SCREEN_HEIGHT - 50),(SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
-    pygame.draw.rect(screen, (0, 255, 0),(0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
+    pygame.draw.line(screen, (255, 255, 255), (0, SCREEN_HEIGHT - 50),
+                     (SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
+    pygame.draw.rect(screen, (0, 255, 0),
+                     (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
 
 
 class Player(pygame.sprite.Sprite):
@@ -37,9 +61,10 @@ class Player(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         self.alive = True
         self.speed = speed
-        self.direction = 1  
+        self.direction = 1
         self.flip = False  # flip the image if moving left
         self.jump = False
+        self.coins = 0
         self.in_air = False
         self.velocity_y = 0
         self.health = 100
@@ -50,9 +75,14 @@ class Player(pygame.sprite.Sprite):
         self.cooldown = 0
         self.update_time = pygame.time.get_ticks()
         temp_list = []
+        # ai character vars
+        self.move_counter = 0
+        self.idling = False
+        self.idling_counter = 0
+        self.vision = pygame.Rect(0, 0, 150, 20)
 
         # load all images for the character
-        animation_types = ['idle', 'run', 'jump','death']
+        animation_types = ['idle', 'run', 'jump', 'death']
         for animation in animation_types:
             temp_list = []
             num_of_frames = len(os.listdir(f'assets/{char_type}/{animation}'))
@@ -142,18 +172,82 @@ class Player(pygame.sprite.Sprite):
 
     def Shoot(self):
         if self.cooldown == 0:
-            self.cooldown = 20
-            arrow = Arrow(self.rect.centerx + self.rect.width * 0.6 * self.direction, self.rect.centery, self.direction)
+            self.cooldown = 40
+            arrow = Arrow(self.rect.centerx + self.rect.width * 0.7 *
+                          self.direction, self.rect.centery, self.direction)
             arrow_group.add(arrow)
 
+    def ai(self):
+        if self.alive and player.alive:
+            # random idle pause for enemy
+            if random.randint(1, 200) == 1 and self.idling == False:
+                self.idling = True
+                self.update_action(0)
+                self.idling_counter = 50
+            
+            # check if the enemy is near the player
+            if self.vision.colliderect(player.rect):
+                # stop running
+                self.update_action(0)
+                self.Shoot()
+
+            # move if enemy is not idling
+            elif self.idling == False:
+                if self.direction == 1:
+                    ai_moving_right = True
+                else:
+                    ai_moving_right = False
+                ai_moving_left = not ai_moving_right
+                self.move(ai_moving_left, ai_moving_right)
+                self.update_action(1)
+                self.move_counter += 1
+
+                # enemy vision implementation
+                self.vision.center = (self.rect.centerx + (self.rect.width * self.direction), self.rect.centery)
+                pygame.draw.rect(screen, (255, 0, 0), self.vision)
+
+                if self.move_counter > TILE_SIZE:
+                    self.direction *= -1
+                    self.move_counter *= -1
+            else:
+                self.idling_counter -= 1
+                if self.idling_counter <= 0:
+                    self.idling = False
+                    self.move_counter = 0
+                    self.update_action(1)
+
     def draw(self):
-        screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect)
-        pygame.draw.rect(screen, (255, 0, 0), self.rect, 2)
+        screen.blit(pygame.transform.flip(
+            self.image, self.flip, False), self.rect)
+
+
+class ItemBox(pygame.sprite.Sprite):
+    def __init__(self, item_type, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.item_type = item_type
+        self.image = item_boxes[item_type]
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (x, y + (TILE_SIZE - self.image.get_height()))
+
+    def update(self):
+        # check if the player has collided with the item box
+        if pygame.sprite.collide_rect(self, player):
+            if self.item_type == 'coin':
+                player.coins += 1
+                print("coin collected", player.coins)
+            elif self.item_type == 'health':
+                if player.health < player.max_health:
+                    player.health += 10
+                    if player.health > player.max_health:
+                        player.health = player.max_health
+                print("health increased", player.health)
+            self.kill()
+
 
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
         pygame.sprite.Sprite.__init__(self)
-        self.speed = 10
+        self.speed = 12
         self.image = arrow_img
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
@@ -171,35 +265,74 @@ class Arrow(pygame.sprite.Sprite):
             if player.alive:
                 player.health -= 10
                 self.kill()
-        # check for collision with the player
+        # check for collision with the enemy
         for enemy in enemy_group:
             if pygame.sprite.spritecollide(enemy, arrow_group, False):
                 if enemy.alive:
                     enemy.health -= 10
                     self.kill()
 
+
 # create sprite groups
 arrow_group = pygame.sprite.Group()
 enemy_group = pygame.sprite.Group()
-player = Player(200, 200, "player", 2, 5)
-enemy = Player(200, SCREEN_HEIGHT - 100, "enemy", 2, 5)
-enemy2 = Player(300, 300, "enemy", 2, 5,)
+item_boxes_group = pygame.sprite.Group()
+player = Player(200, SCREEN_HEIGHT - 100, "player", 2, 4)
+enemy = Player(300, SCREEN_HEIGHT - 100, "enemy", 2, 2)
+enemy2 = Player(600, SCREEN_HEIGHT - 100, "enemy", 2, 2)
+coin = ItemBox('coin', 400, 600)
+coin1 = ItemBox('coin', 500, 600)
+coin2 = ItemBox('coin', 600, 600)
+coin3 = ItemBox('coin', 700, 600)
+item_boxes_group.add(coin)
+item_boxes_group.add(coin1)
+item_boxes_group.add(coin2)
+item_boxes_group.add(coin3)
 enemy_group.add(enemy)
 enemy_group.add(enemy2)
+
+
+# create empty lists for the level
+world_Data = []
+for row in range(ROWS):
+    r = [-1] * COLS
+    world_Data.append(r)
+# load the level data from the csv file
+with open(f'levels/level_{LEVEL}.csv', 'r') as csvfile:
+    reader = csv.reader(csvfile, delimiter=',')
+    for x,row in enumerate(reader):
+        for y,tile in enumerate(row):
+            world_Data[x][y] = int(tile)
+
+
+
+
+
+
 
 
 run = True
 while run:
     # drawing Things
     Draw_BG()
-    arrow_group.update()
-    arrow_group.draw(screen)
+
+    # draw the enemy
+    for en in enemy_group:
+        en.draw()
+        en.update()
+        en.ai()
+
+    # draw the player
     player.draw()
     player.update()
-
-    for enmy in enemy_group:
-        enmy.draw()
-        enmy.update()
+    arrow_group.update()
+    arrow_group.draw(screen)
+    item_boxes_group.update()
+    item_boxes_group.draw(screen)
+    draw_text(f'Coins: {player.coins}', pygame.font.SysFont('Bauhaus 93', 30),
+              (255, 255, 255), screen, 10, 10)
+    draw_text(f'Health: {player.health}', pygame.font.SysFont('Bauhaus 93', 30),
+              (255, 255, 255), screen, 10, 50)
 
     # update the player animation and shooting mechanism
     if player.alive:

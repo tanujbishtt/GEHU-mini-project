@@ -32,13 +32,19 @@ GRAVITY = 0.5
 ROWS = 16
 COLS = 150
 TILE_SIZE = SCREEN_HEIGHT // ROWS
-TILE_TYPES = 18
+TILE_TYPES = 50
 LEVEL = 1
 
 # define player variables
 moving_right = False
 moving_left = False
 shoot = False
+
+img_list = []
+for x in range(TILE_TYPES):
+    img = pygame.image.load(f'assets/tiles/{x}.png').convert_alpha()
+    img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
+    img_list.append(img)
 
 
 def draw_text(text, font, color, surface, x, y):
@@ -54,7 +60,6 @@ def Draw_BG():
                      (SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
     pygame.draw.rect(screen, (0, 255, 0),
                      (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
-
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, char_type, scale=2, speed=5):
@@ -204,7 +209,6 @@ class Player(pygame.sprite.Sprite):
 
                 # enemy vision implementation
                 self.vision.center = (self.rect.centerx + (self.rect.width * self.direction), self.rect.centery)
-                pygame.draw.rect(screen, (255, 0, 0), self.vision)
 
                 if self.move_counter > TILE_SIZE:
                     self.direction *= -1
@@ -220,6 +224,68 @@ class Player(pygame.sprite.Sprite):
         screen.blit(pygame.transform.flip(
             self.image, self.flip, False), self.rect)
 
+
+class World():
+    def __init__(self):
+        self.obstacle_list = []
+    
+    def process_data(self, data):
+        for x,row in enumerate(data):
+            for y,tile in enumerate(row):
+                if tile >= 0:
+                    img = img_list[tile]
+                    img_rect = img.get_rect()
+                    img_rect.x = y * TILE_SIZE
+                    img_rect.y = x * TILE_SIZE
+                    tile_data = (img, img_rect)
+                    if tile >= 0 and tile <= 30:
+                        self.obstacle_list.append(tile_data)
+                    elif tile >= 31 and tile <= 42:
+                        decor = Decoration(img, y * TILE_SIZE, x * TILE_SIZE)
+                        decoration_group.add(decor)
+                    elif tile >= 43 and tile <= 44:
+                        water = Water(img, y * TILE_SIZE, x * TILE_SIZE)
+                        water_group.add(water)
+                    elif tile == 45:
+                        player = Player(y * TILE_SIZE, x * TILE_SIZE, "player", 2, 4)
+                    elif tile == 46:
+                        enemy = Player(y * TILE_SIZE, x * TILE_SIZE, "enemy", 2, 2)
+                        enemy_group.add(enemy)
+                    elif tile == 47:
+                        exit = Exit(img, y * TILE_SIZE, x * TILE_SIZE)
+                        exit_group.add(exit)
+                    elif tile == 48:
+                        health = ItemBox('health',y * TILE_SIZE, x * TILE_SIZE)
+                        item_boxes_group.add(health)
+                    elif tile == 49:
+                        coin = ItemBox('coin',y * TILE_SIZE, x * TILE_SIZE)
+                        item_boxes_group.add(coin)
+        return player
+    
+    def draw(self):
+        for tile in self.obstacle_list:
+            screen.blit(tile[0], tile[1])
+
+class Decoration(pygame.sprite.Sprite):
+    def __init__(self, img, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = img
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (x + TILE_SIZE //2 , y + (TILE_SIZE - self.image.get_height()))
+
+class Water(pygame.sprite.Sprite):
+    def __init__(self, img, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = img
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (x + TILE_SIZE //2 , y + (TILE_SIZE - self.image.get_height()))
+
+class Exit(pygame.sprite.Sprite):
+    def __init__(self, img, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = img
+        self.rect = self.image.get_rect()
+        self.rect.midtop = (x + TILE_SIZE //2 , y + (TILE_SIZE - self.image.get_height()))
 
 class ItemBox(pygame.sprite.Sprite):
     def __init__(self, item_type, x, y):
@@ -274,22 +340,12 @@ class Arrow(pygame.sprite.Sprite):
 
 
 # create sprite groups
-arrow_group = pygame.sprite.Group()
 enemy_group = pygame.sprite.Group()
+arrow_group = pygame.sprite.Group()
 item_boxes_group = pygame.sprite.Group()
-player = Player(200, SCREEN_HEIGHT - 100, "player", 2, 4)
-enemy = Player(300, SCREEN_HEIGHT - 100, "enemy", 2, 2)
-enemy2 = Player(600, SCREEN_HEIGHT - 100, "enemy", 2, 2)
-coin = ItemBox('coin', 400, 600)
-coin1 = ItemBox('coin', 500, 600)
-coin2 = ItemBox('coin', 600, 600)
-coin3 = ItemBox('coin', 700, 600)
-item_boxes_group.add(coin)
-item_boxes_group.add(coin1)
-item_boxes_group.add(coin2)
-item_boxes_group.add(coin3)
-enemy_group.add(enemy)
-enemy_group.add(enemy2)
+decoration_group = pygame.sprite.Group()
+water_group = pygame.sprite.Group()
+exit_group = pygame.sprite.Group()
 
 
 # create empty lists for the level
@@ -304,17 +360,14 @@ with open(f'levels/level_{LEVEL}.csv', 'r') as csvfile:
         for y,tile in enumerate(row):
             world_Data[x][y] = int(tile)
 
-
-
-
-
-
-
-
+world = World()
+player = world.process_data(world_Data)
 run = True
 while run:
     # drawing Things
-    Draw_BG()
+    # Draw_BG()
+    screen.fill((0, 0, 0))
+    world.draw()
 
     # draw the enemy
     for en in enemy_group:
@@ -323,12 +376,20 @@ while run:
         en.ai()
 
     # draw the player
-    player.draw()
-    player.update()
-    arrow_group.update()
     arrow_group.draw(screen)
-    item_boxes_group.update()
     item_boxes_group.draw(screen)
+    water_group.draw(screen)
+    exit_group.draw(screen)
+    decoration_group.draw(screen)
+    player.draw()
+
+    arrow_group.update()
+    item_boxes_group.update()
+    water_group.update()
+    exit_group.update()
+    decoration_group.update()
+    player.update()
+
     draw_text(f'Coins: {player.coins}', pygame.font.SysFont('Bauhaus 93', 30),
               (255, 255, 255), screen, 10, 10)
     draw_text(f'Health: {player.health}', pygame.font.SysFont('Bauhaus 93', 30),

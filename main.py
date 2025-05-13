@@ -20,6 +20,20 @@ item_boxes = {
     'coin': coin_img
 }
 
+# background images
+bg_img_1 = pygame.image.load("assets/background/1.png").convert_alpha()
+bg_img_2 = pygame.image.load("assets/background/2.png").convert_alpha()
+bg_img_3 = pygame.image.load("assets/background/3.png").convert_alpha()
+bg_img_4 = pygame.image.load("assets/background/4.png").convert_alpha()
+bg_img_5 = pygame.image.load("assets/background/5.png").convert_alpha()
+
+# scale background images
+bg_img_1 = pygame.transform.scale(bg_img_1, (SCREEN_WIDTH, SCREEN_HEIGHT))
+bg_img_2 = pygame.transform.scale(bg_img_2, (SCREEN_WIDTH, SCREEN_HEIGHT))
+bg_img_3 = pygame.transform.scale(bg_img_3, (SCREEN_WIDTH, SCREEN_HEIGHT))
+bg_img_4 = pygame.transform.scale(bg_img_4, (SCREEN_WIDTH, SCREEN_HEIGHT))
+bg_img_5 = pygame.transform.scale(bg_img_5, (SCREEN_WIDTH, SCREEN_HEIGHT))
+
 pygame.display.set_caption("2D platformer")
 pygame.display.set_icon(icon)
 
@@ -29,11 +43,14 @@ FPS = 75
 
 # define game variables
 GRAVITY = 0.5
+SCROLL_THRESH = 200
 ROWS = 16
 COLS = 150
-TILE_SIZE = SCREEN_HEIGHT // ROWS
 TILE_TYPES = 50
+TILE_SIZE = SCREEN_HEIGHT // ROWS
 LEVEL = 1
+screen_scroll = 0
+bg_scroll = 0
 
 # define player variables
 moving_right = False
@@ -47,6 +64,20 @@ for x in range(TILE_TYPES):
     img_list.append(img)
 
 
+def DrawBackground():
+    width = bg_img_1.get_width()
+    for i in range(5):
+        screen.blit(bg_img_5, ((i*width) - bg_scroll * 0.4, 0))
+        screen.blit(bg_img_4, ((i*width) - bg_scroll*0.5,
+                    SCREEN_HEIGHT - bg_img_4.get_height() - 30))
+        screen.blit(bg_img_3, ((i*width) - bg_scroll*0.6,
+                    SCREEN_HEIGHT - bg_img_3.get_height() - 30))
+        screen.blit(bg_img_2, ((i*width) - bg_scroll*0.7,
+                    SCREEN_HEIGHT - bg_img_2.get_height() - 30))
+        screen.blit(bg_img_1, ((i*width) - bg_scroll*0.8,
+                    SCREEN_HEIGHT - bg_img_1.get_height() - 30))
+
+
 def draw_text(text, font, color, surface, x, y):
     textobj = font.render(text, True, color)
     textrect = textobj.get_rect()
@@ -54,16 +85,10 @@ def draw_text(text, font, color, surface, x, y):
     surface.blit(textobj, textrect)
 
 
-def Draw_BG():
-    screen.fill((0, 0, 0))
-    pygame.draw.line(screen, (255, 255, 255), (0, SCREEN_HEIGHT - 50),
-                     (SCREEN_WIDTH, SCREEN_HEIGHT - 50), 5)
-    pygame.draw.rect(screen, (0, 255, 0),
-                     (0, SCREEN_HEIGHT - 50, SCREEN_WIDTH, 50))
-
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, char_type, scale=2, speed=5):
         pygame.sprite.Sprite.__init__(self)
+        self.char_type = char_type
         self.alive = True
         self.speed = speed
         self.direction = 1
@@ -109,6 +134,7 @@ class Player(pygame.sprite.Sprite):
             self.cooldown -= 1
 
     def move(self, moving_left, moving_right):
+        s_scroll = 0
         # reset movement variables
         dx = 0
         dy = 0
@@ -127,26 +153,59 @@ class Player(pygame.sprite.Sprite):
             self.velocity_y = -10
             self.jump = False
             self.in_air = True
+
         # apply gravity
-        # self.velocity_y += GRAVITY
-        # if self.velocity_y > 10:
-        #     self.velocity_y = 10
+        self.velocity_y += GRAVITY
+        if self.velocity_y > 10:
+            self.velocity_y = 10
 
         dy += self.velocity_y
 
-        # check for collision with the ground
-        if self.rect.bottom + dy > SCREEN_HEIGHT - 50:
-            dy = SCREEN_HEIGHT - 50 - self.rect.bottom
-            self.in_air = False
-            self.velocity_y = 0
-        else:
-            self.velocity_y += GRAVITY
-            if self.velocity_y > 10:
-                self.velocity_y = 10
+        # check for collision
+        for tile in world.obstacle_list:
+            # check for collision in the x direction
+            if tile[1].colliderect(self.rect.x + dx, self.rect.y, self.rect.width, self.rect.height):
+                dx = 0
+                if self.char_type == 'enemy':
+                    self.direction *= -1
+                    self.move_counter = 0
+            # check for collision in the y direction
+            if tile[1].colliderect(self.rect.x, self.rect.y + dy, self.rect.width, self.rect.height):
+                # check if the player is jumping
+                if self.velocity_y < 0:
+                    self.velocity_y = 0
+                    dy = tile[1].bottom - self.rect.top
+                # check if the player is falling
+                elif self.velocity_y >= 0:
+                    self.velocity_y = 0
+                    self.in_air = False
+                    dy = tile[1].top - self.rect.bottom
+
+        if self.char_type == 'player':
+            # check for collision with water
+            if pygame.sprite.spritecollide(self, water_group, False):
+                    player.alive = False
+                    screen_scroll = 0
+                    dx = 0
+                    dy = 0
+                    self.update_action(3)
+        
+        if self.char_type == 'player':
+            if self.rect.left + dx < 0 or self.rect.right + dx > SCREEN_WIDTH:
+                dx = 0
 
         # update the position of the sprite
         self.rect.x += dx
         self.rect.y += dy
+
+        # update the scroll based on the player position
+        if self.char_type == 'player':
+            if (self.rect.right > SCREEN_WIDTH - SCROLL_THRESH and \
+                bg_scroll < (world.level_length * TILE_SIZE) - SCREEN_WIDTH) or \
+                (self.rect.left < SCROLL_THRESH and bg_scroll > abs(dx)):
+                self.rect.x -= dx
+                s_scroll = -dx
+        return s_scroll
 
     def update_animation(self):
         # update animation
@@ -177,7 +236,7 @@ class Player(pygame.sprite.Sprite):
 
     def Shoot(self):
         if self.cooldown == 0:
-            self.cooldown = 40
+            self.cooldown = 20
             arrow = Arrow(self.rect.centerx + self.rect.width * 0.7 *
                           self.direction, self.rect.centery, self.direction)
             arrow_group.add(arrow)
@@ -189,7 +248,7 @@ class Player(pygame.sprite.Sprite):
                 self.idling = True
                 self.update_action(0)
                 self.idling_counter = 50
-            
+
             # check if the enemy is near the player
             if self.vision.colliderect(player.rect):
                 # stop running
@@ -208,7 +267,8 @@ class Player(pygame.sprite.Sprite):
                 self.move_counter += 1
 
                 # enemy vision implementation
-                self.vision.center = (self.rect.centerx + (self.rect.width * self.direction), self.rect.centery)
+                self.vision.center = (
+                    self.rect.centerx + (self.rect.width * self.direction), self.rect.centery)
 
                 if self.move_counter > TILE_SIZE:
                     self.direction *= -1
@@ -220,6 +280,9 @@ class Player(pygame.sprite.Sprite):
                     self.move_counter = 0
                     self.update_action(1)
 
+        # scroll the screen with the player
+        self.rect.x += screen_scroll
+
     def draw(self):
         screen.blit(pygame.transform.flip(
             self.image, self.flip, False), self.rect)
@@ -228,10 +291,11 @@ class Player(pygame.sprite.Sprite):
 class World():
     def __init__(self):
         self.obstacle_list = []
-    
+
     def process_data(self, data):
-        for x,row in enumerate(data):
-            for y,tile in enumerate(row):
+        self.level_length = len(data[0])
+        for x, row in enumerate(data):
+            for y, tile in enumerate(row):
                 if tile >= 0:
                     img = img_list[tile]
                     img_rect = img.get_rect()
@@ -247,45 +311,65 @@ class World():
                         water = Water(img, y * TILE_SIZE, x * TILE_SIZE)
                         water_group.add(water)
                     elif tile == 45:
-                        player = Player(y * TILE_SIZE, x * TILE_SIZE, "player", 2, 4)
+                        player = Player(y * TILE_SIZE, x *
+                                        TILE_SIZE, "player", 1.5, 4)
                     elif tile == 46:
-                        enemy = Player(y * TILE_SIZE, x * TILE_SIZE, "enemy", 2, 2)
+                        enemy = Player(y * TILE_SIZE, x *
+                                       TILE_SIZE, "enemy", 1.5, 2)
                         enemy_group.add(enemy)
                     elif tile == 47:
                         exit = Exit(img, y * TILE_SIZE, x * TILE_SIZE)
                         exit_group.add(exit)
                     elif tile == 48:
-                        health = ItemBox('health',y * TILE_SIZE, x * TILE_SIZE)
+                        health = ItemBox(
+                            'health', y * TILE_SIZE, x * TILE_SIZE)
                         item_boxes_group.add(health)
                     elif tile == 49:
-                        coin = ItemBox('coin',y * TILE_SIZE, x * TILE_SIZE)
+                        coin = ItemBox('coin', y * TILE_SIZE, x * TILE_SIZE)
                         item_boxes_group.add(coin)
         return player
-    
+
     def draw(self):
         for tile in self.obstacle_list:
+            tile[1].x += screen_scroll
             screen.blit(tile[0], tile[1])
+
 
 class Decoration(pygame.sprite.Sprite):
     def __init__(self, img, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.image = img
         self.rect = self.image.get_rect()
-        self.rect.midtop = (x + TILE_SIZE //2 , y + (TILE_SIZE - self.image.get_height()))
+        self.rect.midtop = (x + TILE_SIZE // 2, y +
+                            (TILE_SIZE - self.image.get_height()))
+
+    def update(self):
+        self.rect.x += screen_scroll
+
 
 class Water(pygame.sprite.Sprite):
     def __init__(self, img, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.image = img
         self.rect = self.image.get_rect()
-        self.rect.midtop = (x + TILE_SIZE //2 , y + (TILE_SIZE - self.image.get_height()))
+        self.rect.midtop = (x + TILE_SIZE // 2, y +
+                            (TILE_SIZE - self.image.get_height()))
+
+    def update(self):
+        self.rect.x += screen_scroll
+
 
 class Exit(pygame.sprite.Sprite):
     def __init__(self, img, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.image = img
         self.rect = self.image.get_rect()
-        self.rect.midtop = (x + TILE_SIZE //2 , y + (TILE_SIZE - self.image.get_height()))
+        self.rect.midtop = (x + TILE_SIZE // 2, y +
+                            (TILE_SIZE - self.image.get_height()))
+
+    def update(self):
+        self.rect.x += screen_scroll
+
 
 class ItemBox(pygame.sprite.Sprite):
     def __init__(self, item_type, x, y):
@@ -296,6 +380,7 @@ class ItemBox(pygame.sprite.Sprite):
         self.rect.midtop = (x, y + (TILE_SIZE - self.image.get_height()))
 
     def update(self):
+        self.rect.x += screen_scroll
         # check if the player has collided with the item box
         if pygame.sprite.collide_rect(self, player):
             if self.item_type == 'coin':
@@ -320,11 +405,16 @@ class Arrow(pygame.sprite.Sprite):
         self.direction = direction
 
     def update(self):
-        self.rect.x += self.speed * self.direction
+        self.rect.x += self.speed * self.direction + screen_scroll
 
-        # check for collision with the wall
+        # check if bullet is off the screen
         if self.rect.x < 0 or self.rect.x > SCREEN_WIDTH:
             self.kill()
+
+        # check for collision with the environment
+        for tile in world.obstacle_list:
+            if tile[1].colliderect(self.rect):
+                self.kill()
 
         # check for collision with the player
         if pygame.sprite.spritecollide(player, arrow_group, False):
@@ -356,8 +446,8 @@ for row in range(ROWS):
 # load the level data from the csv file
 with open(f'levels/level_{LEVEL}.csv', 'r') as csvfile:
     reader = csv.reader(csvfile, delimiter=',')
-    for x,row in enumerate(reader):
-        for y,tile in enumerate(row):
+    for x, row in enumerate(reader):
+        for y, tile in enumerate(row):
             world_Data[x][y] = int(tile)
 
 world = World()
@@ -365,17 +455,9 @@ player = world.process_data(world_Data)
 run = True
 while run:
     # drawing Things
-    # Draw_BG()
-    screen.fill((0, 0, 0))
+    DrawBackground()
     world.draw()
 
-    # draw the enemy
-    for en in enemy_group:
-        en.draw()
-        en.update()
-        en.ai()
-
-    # draw the player
     arrow_group.draw(screen)
     item_boxes_group.draw(screen)
     water_group.draw(screen)
@@ -388,7 +470,12 @@ while run:
     water_group.update()
     exit_group.update()
     decoration_group.update()
+
     player.update()
+    for en in enemy_group:
+        en.draw()
+        en.update()
+        en.ai()
 
     draw_text(f'Coins: {player.coins}', pygame.font.SysFont('Bauhaus 93', 30),
               (255, 255, 255), screen, 10, 10)
@@ -406,7 +493,8 @@ while run:
             player.update_action(1)
         else:
             player.update_action(0)
-        player.move(moving_left, moving_right)
+        screen_scroll = player.move(moving_left, moving_right)
+        bg_scroll -= screen_scroll
 
     # check for key presses
     for event in pygame.event.get():

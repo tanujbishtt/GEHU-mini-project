@@ -311,18 +311,15 @@ class World():
                         water = Water(img, y * TILE_SIZE, x * TILE_SIZE)
                         water_group.add(water)
                     elif tile == 45:
-                        player = Player(y * TILE_SIZE, x *
-                                        TILE_SIZE, "player", 2, 10)
+                        player = Player(y * TILE_SIZE, x * TILE_SIZE, "player", 2.25, 5)
                     elif tile == 46:
-                        enemy = Player(y * TILE_SIZE, x *
-                                       TILE_SIZE, "enemy", 1.75, 4)
+                        enemy = Player(y * TILE_SIZE, x * TILE_SIZE, "enemy", 2.15, 4)
                         enemy_group.add(enemy)
                     elif tile == 47:
                         exit = Exit(img, y * TILE_SIZE, x * TILE_SIZE)
                         exit_group.add(exit)
                     elif tile == 48:
-                        health = ItemBox(
-                            'health', y * TILE_SIZE, x * TILE_SIZE)
+                        health = ItemBox('health', y * TILE_SIZE, x * TILE_SIZE)
                         item_boxes_group.add(health)
                     elif tile == 49:
                         coin = ItemBox('coin', y * TILE_SIZE, x * TILE_SIZE)

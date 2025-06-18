@@ -6,7 +6,6 @@ import os
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
@@ -150,7 +149,7 @@ class Player(pygame.sprite.Sprite):
 
         # jumping
         if self.jump and not self.in_air:
-            self.velocity_y = -10
+            self.velocity_y = -15
             self.jump = False
             self.in_air = True
 
@@ -259,9 +258,11 @@ class Player(pygame.sprite.Sprite):
             elif self.idling == False:
                 if self.direction == 1:
                     ai_moving_right = True
+                    ai_moving_left = False
                 else:
                     ai_moving_right = False
-                ai_moving_left = not ai_moving_right
+                    ai_moving_left = True
+
                 self.move(ai_moving_left, ai_moving_right)
                 self.update_action(1)
                 self.move_counter += 1
@@ -272,13 +273,11 @@ class Player(pygame.sprite.Sprite):
 
                 if self.move_counter > TILE_SIZE:
                     self.direction *= -1
-                    self.move_counter *= -1
+                    self.move_counter = 0
             else:
                 self.idling_counter -= 1
                 if self.idling_counter <= 0:
                     self.idling = False
-                    self.move_counter = 0
-                    self.update_action(1)
 
         # scroll the screen with the player
         self.rect.x += screen_scroll
@@ -286,6 +285,7 @@ class Player(pygame.sprite.Sprite):
     def draw(self):
         screen.blit(pygame.transform.flip(
             self.image, self.flip, False), self.rect)
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 2)
 
 
 class World():
@@ -312,10 +312,10 @@ class World():
                         water_group.add(water)
                     elif tile == 45:
                         player = Player(y * TILE_SIZE, x *
-                                        TILE_SIZE, "player", 1.5, 4)
+                                        TILE_SIZE, "player", 2, 10)
                     elif tile == 46:
                         enemy = Player(y * TILE_SIZE, x *
-                                       TILE_SIZE, "enemy", 1.5, 2)
+                                       TILE_SIZE, "enemy", 1.75, 4)
                         enemy_group.add(enemy)
                     elif tile == 47:
                         exit = Exit(img, y * TILE_SIZE, x * TILE_SIZE)
@@ -385,13 +385,11 @@ class ItemBox(pygame.sprite.Sprite):
         if pygame.sprite.collide_rect(self, player):
             if self.item_type == 'coin':
                 player.coins += 1
-                print("coin collected", player.coins)
             elif self.item_type == 'health':
                 if player.health < player.max_health:
                     player.health += 10
                     if player.health > player.max_health:
                         player.health = player.max_health
-                print("health increased", player.health)
             self.kill()
 
 
@@ -470,7 +468,6 @@ while run:
     water_group.update()
     exit_group.update()
     decoration_group.update()
-
     player.update()
     for en in enemy_group:
         en.draw()
@@ -478,9 +475,9 @@ while run:
         en.ai()
 
     draw_text(f'Coins: {player.coins}', pygame.font.SysFont('Bauhaus 93', 30),
-              (255, 255, 255), screen, 10, 10)
+              'red', screen, 50, 10)
     draw_text(f'Health: {player.health}', pygame.font.SysFont('Bauhaus 93', 30),
-              (255, 255, 255), screen, 10, 50)
+              'red', screen, 50, 50)
 
     # update the player animation and shooting mechanism
     if player.alive:

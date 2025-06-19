@@ -236,14 +236,12 @@ class Player(pygame.sprite.Sprite):
     def ai(self):
         if self.alive and player.alive:
             # random idle pause for enemy
-            if random.randint(1, 200) == 45 and self.idling == False:
+            if random.randint(1, 200) == 20 and self.idling == False:
                 self.idling = True
                 self.update_action(0)
                 self.idling_counter = 50
 
             # check if the enemy is near the player
-            # Draw enemy vision rectangle for debugging
-            pygame.draw.rect(screen, (0, 255, 0), self.vision, 2)
             if self.vision.colliderect(player.rect):
                 # stop running
                 self.update_action(0)
@@ -277,9 +275,7 @@ class Player(pygame.sprite.Sprite):
         self.rect.x += screen_scroll
 
     def draw(self):
-        screen.blit(pygame.transform.flip(
-            self.image, self.flip, False), self.rect)
-        pygame.draw.rect(screen, (255, 0, 0), self.rect, 2)
+        screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect)
 
 class World():
     def __init__(self):

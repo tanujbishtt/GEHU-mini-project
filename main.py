@@ -62,27 +62,20 @@ for x in range(TILE_TYPES):
     img = pygame.transform.scale(img, (TILE_SIZE, TILE_SIZE))
     img_list.append(img)
 
-
 def DrawBackground():
     width = bg_img_1.get_width()
     for i in range(5):
         screen.blit(bg_img_5, ((i*width) - bg_scroll * 0.4, 0))
-        screen.blit(bg_img_4, ((i*width) - bg_scroll*0.5,
-                    SCREEN_HEIGHT - bg_img_4.get_height() - 30))
-        screen.blit(bg_img_3, ((i*width) - bg_scroll*0.6,
-                    SCREEN_HEIGHT - bg_img_3.get_height() - 30))
-        screen.blit(bg_img_2, ((i*width) - bg_scroll*0.7,
-                    SCREEN_HEIGHT - bg_img_2.get_height() - 30))
-        screen.blit(bg_img_1, ((i*width) - bg_scroll*0.8,
-                    SCREEN_HEIGHT - bg_img_1.get_height() - 30))
-
+        screen.blit(bg_img_4, ((i*width) - bg_scroll*0.5,SCREEN_HEIGHT - bg_img_4.get_height() - 30))
+        screen.blit(bg_img_3, ((i*width) - bg_scroll*0.6,SCREEN_HEIGHT - bg_img_3.get_height() - 30))
+        screen.blit(bg_img_2, ((i*width) - bg_scroll*0.7,SCREEN_HEIGHT - bg_img_2.get_height() - 30))
+        screen.blit(bg_img_1, ((i*width) - bg_scroll*0.8,SCREEN_HEIGHT - bg_img_1.get_height() - 30))
 
 def draw_text(text, font, color, surface, x, y):
     textobj = font.render(text, True, color)
     textrect = textobj.get_rect()
     textrect.topleft = (x, y)
     surface.blit(textobj, textrect)
-
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, char_type, scale=2, speed=5):
@@ -108,7 +101,7 @@ class Player(pygame.sprite.Sprite):
         self.move_counter = 0
         self.idling = False
         self.idling_counter = 0
-        self.vision = pygame.Rect(0, 0, 150, 20)
+        self.vision = pygame.Rect(0, 0, 250, 10)
 
         # load all images for the character
         animation_types = ['idle', 'run', 'jump', 'death']
@@ -149,7 +142,7 @@ class Player(pygame.sprite.Sprite):
 
         # jumping
         if self.jump and not self.in_air:
-            self.velocity_y = -15
+            self.velocity_y = -12
             self.jump = False
             self.in_air = True
 
@@ -243,12 +236,14 @@ class Player(pygame.sprite.Sprite):
     def ai(self):
         if self.alive and player.alive:
             # random idle pause for enemy
-            if random.randint(1, 200) == 1 and self.idling == False:
+            if random.randint(1, 200) == 45 and self.idling == False:
                 self.idling = True
                 self.update_action(0)
                 self.idling_counter = 50
 
             # check if the enemy is near the player
+            # Draw enemy vision rectangle for debugging
+            pygame.draw.rect(screen, (0, 255, 0), self.vision, 2)
             if self.vision.colliderect(player.rect):
                 # stop running
                 self.update_action(0)
@@ -268,8 +263,7 @@ class Player(pygame.sprite.Sprite):
                 self.move_counter += 1
 
                 # enemy vision implementation
-                self.vision.center = (
-                    self.rect.centerx + (self.rect.width * self.direction), self.rect.centery)
+                self.vision.center = (self.rect.centerx + (self.rect.width * self.direction), self.rect.centery)
 
                 if self.move_counter > TILE_SIZE:
                     self.direction *= -1
@@ -286,7 +280,6 @@ class Player(pygame.sprite.Sprite):
         screen.blit(pygame.transform.flip(
             self.image, self.flip, False), self.rect)
         pygame.draw.rect(screen, (255, 0, 0), self.rect, 2)
-
 
 class World():
     def __init__(self):
@@ -313,7 +306,7 @@ class World():
                     elif tile == 45:
                         player = Player(y * TILE_SIZE, x * TILE_SIZE, "player", 2.25, 5)
                     elif tile == 46:
-                        enemy = Player(y * TILE_SIZE, x * TILE_SIZE, "enemy", 2.15, 4)
+                        enemy = Player(y * TILE_SIZE, x * TILE_SIZE, "enemy" , 2.15 , 2)
                         enemy_group.add(enemy)
                     elif tile == 47:
                         exit = Exit(img, y * TILE_SIZE, x * TILE_SIZE)
@@ -331,7 +324,6 @@ class World():
             tile[1].x += screen_scroll
             screen.blit(tile[0], tile[1])
 
-
 class Decoration(pygame.sprite.Sprite):
     def __init__(self, img, x, y):
         pygame.sprite.Sprite.__init__(self)
@@ -343,18 +335,15 @@ class Decoration(pygame.sprite.Sprite):
     def update(self):
         self.rect.x += screen_scroll
 
-
 class Water(pygame.sprite.Sprite):
     def __init__(self, img, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.image = img
         self.rect = self.image.get_rect()
-        self.rect.midtop = (x + TILE_SIZE // 2, y +
-                            (TILE_SIZE - self.image.get_height()))
+        self.rect.midtop = (x + TILE_SIZE // 2, y + (TILE_SIZE - self.image.get_height()))
 
     def update(self):
         self.rect.x += screen_scroll
-
 
 class Exit(pygame.sprite.Sprite):
     def __init__(self, img, x, y):
@@ -366,7 +355,6 @@ class Exit(pygame.sprite.Sprite):
 
     def update(self):
         self.rect.x += screen_scroll
-
 
 class ItemBox(pygame.sprite.Sprite):
     def __init__(self, item_type, x, y):
@@ -388,7 +376,6 @@ class ItemBox(pygame.sprite.Sprite):
                     if player.health > player.max_health:
                         player.health = player.max_health
             self.kill()
-
 
 class Arrow(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
